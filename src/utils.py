@@ -2,7 +2,7 @@ import re
 
 from src.leafnode import LeafNode
 from textnode import TextNode, TextType
-from htmlnode import BlockType
+from htmlnode import BlockType, HTMLNode
 
 
 def split_nodes_delimiter(old_nodes: list[TextNode], delimiter: str, text_type: TextType) -> list[TextNode]:
@@ -52,6 +52,14 @@ def text_node_to_html_node(text_node: TextNode):
 
     return ''
 
+def text_blockquote_to_html_node(text):
+    lines = [line.strip('>').strip() for line in text.splitlines()]
+    markdown = '\n'.join(lines)
+    return markdown_to_html_node(markdown, 'blockquote')
+
+def text_heading_to_html_node(text):
+    (level, content) = text.split(' ', 1)
+    return HTMLNode(f'h{len(level)}', value=content)
 
 def extract_markdown_images(text: str) -> list[tuple[str, str]]:
     return re.findall(rf'!\[(.*?)]\((.*?)\)', text)
@@ -110,6 +118,9 @@ def split_nodes_link(old_nodes):
 
 
 def text_to_textnodes(text) -> list[TextNode]:
+    # I am adding this to mimic the results from the course, but I don't recall this being required.
+    text = text.replace('\n', ' ').replace('\r', ' ')
+
     nodes = [TextNode(text, TextType.TEXT)]
     nodes = split_nodes_delimiter(nodes, "**", TextType.BOLD)
     nodes = split_nodes_delimiter(nodes, "_", TextType.ITALIC)
@@ -146,3 +157,32 @@ def block_to_block_type(block: str) -> BlockType:
 
     # paragraph
     return BlockType.PARAGRAPH
+
+def markdown_to_html_node(markdown, root='div'):
+    blocks = markdown_to_blocks(markdown)
+    child_tags = []
+    for block in blocks:
+        if block_to_block_type(block) == BlockType.HEADING:
+            child_tags.append(text_heading_to_html_node(block))
+
+        elif block_to_block_type(block) == BlockType.QUOTE:
+            child_tags.append(text_blockquote_to_html_node(block))
+
+        elif block_to_block_type(block) == BlockType.PARAGRAPH:
+            text_nodes = text_to_textnodes(block)
+            html_nodes = []
+            for text_node in text_nodes:
+                html_nodes.append(text_node_to_html_node(text_node))
+            child_tags.append(HTMLNode(tag="p", children=html_nodes))
+
+    return HTMLNode(root, children=child_tags)
+
+md = """
+## Heading 
+
+> And a paragraph
+>
+> more here _for you_ with *bold* text.
+"""
+res = markdown_to_html_node(md)
+print(res)

@@ -53,7 +53,7 @@ class HTMLNode:
             output += f"{self.value}"
         if self.children:
             for child_tag in self.children:
-                output += f"\n{child_tag}\n"
+                output += f"{child_tag}"
         if self.tag:
             output += f"</{self.tag}>"
 

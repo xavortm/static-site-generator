@@ -1,3 +1,4 @@
+from htmlnode import BlockType
 from textnode import TextNode, TextType
 import utils
 import unittest
@@ -125,3 +126,30 @@ This is the same paragraph on a new line
                 "- This is a list\n- with items",
             ],
         )
+
+    def test_block_to_block_type_heading_fail(self):
+        md = "#Not a heading"
+        blocks = utils.block_to_block_type(md)
+        self.assertEqual(blocks, BlockType.PARAGRAPH)
+
+    def test_block_to_block_type_heading_1(self):
+        md = "# Heading"
+        blocks = utils.block_to_block_type(md)
+        self.assertEqual(blocks, BlockType.HEADING)
+
+    def test_block_to_block_type_heading_3(self):
+        md = "### Heading 3"
+        blocks = utils.block_to_block_type(md)
+        self.assertEqual(blocks, BlockType.HEADING)
+
+    def test_block_to_block_type_paragraph(self):
+        md = "this is a paragraph"
+        blocks = utils.block_to_block_type(md)
+        self.assertEqual(blocks, BlockType.PARAGRAPH)
+
+    def test_block_to_block_type_code_block(self):
+        md = """```
+this is code
+```"""
+        blocks = utils.block_to_block_type(md)
+        self.assertEqual(blocks, BlockType.CODE)

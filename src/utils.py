@@ -1,6 +1,8 @@
 import re
 
+from src.leafnode import LeafNode
 from textnode import TextNode, TextType
+from htmlnode import BlockType
 
 
 def split_nodes_delimiter(old_nodes: list[TextNode], delimiter: str, text_type: TextType) -> list[TextNode]:
@@ -24,6 +26,31 @@ def split_nodes_delimiter(old_nodes: list[TextNode], delimiter: str, text_type: 
                 output.append(TextNode(item, text_type=text_type))
 
     return output
+
+
+def text_node_to_html_node(text_node: TextNode):
+    if text_node.text_type not in TextType:
+        raise ValueError(f"text_type {text_node.text_type} not supported")
+
+    if text_node.text_type is TextType.TEXT:
+        return LeafNode(tag=None, value=text_node.text)
+
+    if text_node.text_type is TextType.BOLD:
+        return LeafNode(tag='b', value=text_node.text)
+
+    if text_node.text_type is TextType.ITALIC:
+        return LeafNode(tag='i', value=text_node.text)
+
+    if text_node.text_type is TextType.CODE:
+        return LeafNode(tag='code', value=text_node.text)
+
+    if text_node.text_type is TextType.LINK:
+        return LeafNode(tag='a', value=text_node.text, props={'href': text_node.url})
+
+    if text_node.text_type is TextType.IMAGE:
+        return LeafNode(tag='img', value='', props={'src': text_node.url, 'alt': text_node.text})
+
+    return ''
 
 
 def extract_markdown_images(text: str) -> list[tuple[str, str]]:
@@ -95,3 +122,27 @@ def text_to_textnodes(text) -> list[TextNode]:
 def markdown_to_blocks(markdown) -> list[str]:
     raw_blocks = markdown.split("\n\n")
     return [block.strip() for block in raw_blocks if block.strip()]
+
+
+def block_to_block_type(block: str) -> BlockType:
+    if block.startswith(("# ", "## ", "### ", "#### ", "##### ", "###### ")):
+        return BlockType.HEADING
+
+    # Code
+    if block.startswith("```\n") and block.endswith("```"):
+        return BlockType.CODE
+
+    # quote
+    if block.startswith(">"):
+        return BlockType.QUOTE
+
+    # unordered
+    if block.startswith("- "):
+        return BlockType.UNORDERED_LIST
+
+    # ordered
+    if re.match(r"^\d*\. ", block):
+        return BlockType.UNORDERED_LIST
+
+    # paragraph
+    return BlockType.PARAGRAPH

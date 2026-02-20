@@ -4,6 +4,13 @@ from src.leafnode import LeafNode
 from textnode import TextNode, TextType
 from htmlnode import BlockType, HTMLNode
 
+def text_type_test_to_html(text: str, tag: str) -> HTMLNode:
+    text_nodes = text_to_textnodes(text)
+    html_nodes = []
+    for text_node in text_nodes:
+        html_nodes.append(text_node_to_html_node(text_node))
+
+    return HTMLNode(tag, children=html_nodes)
 
 def split_nodes_delimiter(old_nodes: list[TextNode], delimiter: str, text_type: TextType) -> list[TextNode]:
     output: list[TextNode] = []
@@ -53,13 +60,54 @@ def text_node_to_html_node(text_node: TextNode):
     return ''
 
 def text_blockquote_to_html_node(text):
-    lines = [line.strip('>').strip() for line in text.splitlines()]
+    lines = []
+    for line in text.splitlines():
+        clean_line = line.lstrip('>').lstrip()
+        lines.append(clean_line)
+
     markdown = '\n'.join(lines)
     return markdown_to_html_node(markdown, 'blockquote')
 
 def text_heading_to_html_node(text):
     (level, content) = text.split(' ', 1)
-    return HTMLNode(f'h{len(level)}', value=content)
+    return text_type_test_to_html(content, f'h{len(level)}')
+
+
+def text_ul_to_html_node(text):
+    lines = []
+
+    # Trying for a little smarter indentation support:
+    # Does not support indented list items
+    for line in text.splitlines():
+        clean_line = line.lstrip()
+
+        # Check if the line actually starts with a valid bullet
+        if not clean_line.startswith(('* ', '- ')):
+            raise ValueError(f"Invalid markdown: '{line}' is not a valid list item.")
+
+        content = clean_line[2:].strip()
+        html_tag = text_type_test_to_html(content, 'li')
+        lines.append(html_tag)
+    return HTMLNode('ul', children=lines)
+
+def text_ol_to_html_node(text):
+    lines = []
+
+    # Trying for a little smarter indentation support:
+    # Does not support indented list items
+    for line in text.splitlines():
+        clean_line = line.lstrip()
+        matches = re.match(r"^\d*\. ", line)
+
+        # Check if the line actually starts with a valid bullet
+        if not matches:
+            raise ValueError(f"Invalid markdown: '{line}' is not a valid list item.")
+
+        content = clean_line.split('. ', maxsplit=1)[1]
+        html_tag = text_type_test_to_html(content, 'li')
+        lines.append(html_tag)
+    return HTMLNode('ol', children=lines)
+
 
 def extract_markdown_images(text: str) -> list[tuple[str, str]]:
     return re.findall(rf'!\[(.*?)]\((.*?)\)', text)
@@ -124,6 +172,7 @@ def text_to_textnodes(text) -> list[TextNode]:
     nodes = [TextNode(text, TextType.TEXT)]
     nodes = split_nodes_delimiter(nodes, "**", TextType.BOLD)
     nodes = split_nodes_delimiter(nodes, "_", TextType.ITALIC)
+    nodes = split_nodes_delimiter(nodes, "*", TextType.ITALIC)
     nodes = split_nodes_delimiter(nodes, "`", TextType.CODE)
     nodes = split_nodes_link(nodes)
     nodes = split_nodes_image(nodes)
@@ -148,12 +197,13 @@ def block_to_block_type(block: str) -> BlockType:
         return BlockType.QUOTE
 
     # unordered
-    if block.startswith("- "):
+    clean_block = block.lstrip()
+    if clean_block.startswith(("-", "*")):
         return BlockType.UNORDERED_LIST
 
     # ordered
     if re.match(r"^\d*\. ", block):
-        return BlockType.UNORDERED_LIST
+        return BlockType.ORDERED_LIST
 
     # paragraph
     return BlockType.PARAGRAPH
@@ -168,6 +218,19 @@ def markdown_to_html_node(markdown, root='div'):
         elif block_to_block_type(block) == BlockType.QUOTE:
             child_tags.append(text_blockquote_to_html_node(block))
 
+        elif block_to_block_type(block) == BlockType.ORDERED_LIST:
+            child_tags.append(text_ol_to_html_node(block))
+
+        elif block_to_block_type(block) == BlockType.UNORDERED_LIST:
+            child_tags.append(text_ul_to_html_node(block))
+
+        elif block_to_block_type(block) == BlockType.CODE:
+            lines = block.splitlines()
+            content_lines = [line for line in lines if not line.strip().startswith('```')]
+            clean_code = '\n'.join(content_lines) + '\n'
+            inner = text_node_to_html_node(TextNode(clean_code, text_type=TextType.CODE))
+            child_tags.append(HTMLNode('pre', children=[inner]))
+
         elif block_to_block_type(block) == BlockType.PARAGRAPH:
             text_nodes = text_to_textnodes(block)
             html_nodes = []
@@ -176,13 +239,3 @@ def markdown_to_html_node(markdown, root='div'):
             child_tags.append(HTMLNode(tag="p", children=html_nodes))
 
     return HTMLNode(root, children=child_tags)
-
-md = """
-## Heading 
-
-> And a paragraph
->
-> more here _for you_ with *bold* text.
-"""
-res = markdown_to_html_node(md)
-print(res)

@@ -26,22 +26,6 @@ class HTMLNode:
         self.props = props
 
     def to_html(self):
-        """
-        To be implemented by child class
-        """
-        raise NotImplementedError()
-
-    def props_to_html(self) -> str:
-        if not self.props:
-            return ''
-
-        output = ''
-        for key, value in self.props.items():
-            output += f" {key}=\"{value}\""
-
-        return output
-
-    def __repr__(self) -> str:
         output = ''
         if self.tag:
             output += f"<{self.tag}"
@@ -58,3 +42,16 @@ class HTMLNode:
             output += f"</{self.tag}>"
 
         return output
+
+    def props_to_html(self) -> str:
+        if not self.props:
+            return ''
+
+        output = ''
+        for key, value in self.props.items():
+            output += f" {key}=\"{value}\""
+
+        return output
+
+    def __repr__(self) -> str:
+        return self.to_html()
